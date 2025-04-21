@@ -1,0 +1,263 @@
+#include <iostream>
+#include <random>
+
+using namespace std;
+
+template <typename K, typename T>
+class HashTable {
+
+	struct Node {
+		K key;
+		T data;
+		Node* next;
+		Node(K key, const T& data, Node* next) : key(key), data(data), next(next) {}
+
+		void print() const {
+			cout << "key: " << key << " | data: " << data << endl;
+		}
+	};
+
+	int size;
+	int capacity;
+	Node** vec;
+
+	int hash_function(const K& key) const {
+		size_t hash = 0;
+		for (char c : key) {
+			hash = hash * 31 + c;
+		}
+		return hash % capacity; 
+
+	}
+public:
+
+	HashTable(int capacity) : capacity(capacity), size(0) {
+		vec = new Node * [capacity];
+		for (int i = 0; i < capacity; i++) {
+			vec[i] = nullptr;
+		}
+	}
+
+	HashTable(int capacity, int size) : capacity(capacity), size(size) {
+		random_device rd;
+		mt19937 gen(rd());
+		uniform_int_distribution<K> distrib_key(0, capacity - 1);
+		uniform_int_distribution<T> distrib_data(0, 100);
+
+		vec = new Node * [capacity];
+		for (size_t i = 0; i < size; ++i) {
+			K key = distrib_key(gen);
+			T data = distrib_data(gen);
+			insert(key, data);
+		}
+	}
+
+	HashTable(const HashTable& other) : capacity(other.capacity), size(other.size) {
+		vec = new Node * [capacity]();
+		for (int i = 0; i < other.capacity; i++) {
+			Node* cur = other.vec[i];
+			while (cur) {
+				insert(cur->key, cur->data);
+				cur = cur->next;
+			}
+		}
+	}
+
+	void clear() {
+		for (int i = 0; i < capacity; ++i) {
+			Node* cur = vec[i];
+			while (cur) {
+				Node* tmp = cur;
+				cur = cur->next;
+				delete tmp;
+			}
+		}
+		delete[] vec;
+	}
+
+	~HashTable() {
+		clear();
+	}
+
+	HashTable& operator=(const HashTable& other) {
+		if (this != &other) {
+			clear();
+			capacity = other.capacity;
+			size = other.size;
+			vec = new Node * [capacity];
+			for (size_t i = 0; i < capacity; ++i) {
+				vec[i] = nullptr;
+				Node* cur = other.vec[i];
+				while (cur) {
+					insert(cur->key, cur->data);
+					cur = cur->next;
+				}
+			}
+		}
+		return *this;
+	}
+
+	T& operator[](K key) {
+		int idx = hash_function(key);
+		Node* cur = vec[idx];
+		while (cur) {
+			if (cur->key == key)
+				return cur->data;
+			cur = cur->next;
+		}
+		throw logic_error("not found");
+	}
+
+	void print() {
+		for (size_t i = 0; i < capacity; ++i) {
+			Node* cur = vec[i];
+			while (cur) {
+				cur->print();
+				cur = cur->next;
+			}
+		}
+	}
+
+	bool insert(K key, const T& data) {
+		if (size > capacity) return false;
+		int idx = hash_function(key);
+		Node* cur = vec[idx];
+		while (cur) {
+			if (cur->key == key) {
+				return false;
+			}
+			cur = cur->next;
+		}
+		vec[idx] = new Node(key, data, vec[idx]);
+		size++;
+		return true;
+	}
+
+	void insert_or_assign(K key, const T& data) {
+		int idx = hash_function(key);
+		Node* cur = vec[idx];
+		while (cur) {
+			if (cur->key == key) {
+				cur->data = data;
+				return;
+			}
+			cur = cur->next;
+		}
+		insert(key, data);
+	}
+
+
+	bool contains(const T& data) {
+		for (int i = 0; i < capacity; i++) {
+			Node* cur = vec[i];
+			while (cur) {
+				if (cur->data == data)
+					return true;
+				cur = cur->next;
+			}
+		}
+		return false;
+	}
+
+	T* search(K key) {
+		int idx = hash_function(key);
+		if (!vec[idx])
+			return nullptr;
+		Node* cur = vec[idx];
+		while (cur) {
+			if (cur->key == key)
+				return &cur->data;
+			cur = cur->next;
+		}
+		return nullptr;
+	}
+
+	bool erase(K key) {
+		int idx = hash_function(key);
+		Node* cur = vec[idx];
+		Node* prev = nullptr;
+		while (cur) {
+			if (cur->key == key) {
+				if (prev == nullptr) {
+					vec[idx] = cur->next;
+				}
+				else {
+					prev->next = cur->next;
+				}
+				delete cur;
+				size--;
+				return true;
+			}
+			prev = cur;
+			cur = cur->next;
+		}
+		return false;
+	}
+
+	int count(K key) {
+		int idx = hash_function(key);
+		int counter = 0;
+		Node* cur = vec[idx];
+		while (cur) {
+			counter++;
+			cur = cur->next;
+		}
+		return counter;
+	}
+
+};
+int roman_to_decimal(const string& roman, HashTable<string, int>& ht) {
+	int result = 0;
+	for (size_t i = 0; i < roman.length(); ++i) {
+		string current_key(1, roman[i]);
+		int* current_val = ht.search(current_key);
+		int current = *current_val;
+
+		if (i + 1 < roman.length()) {
+			string next_key(1, roman[i + 1]);
+			int* next_val = ht.search(next_key);
+			int next = *next_val;
+
+			if (next > current) {
+				result -= current;
+			}
+			else {
+				result += current;
+			}
+		}
+		else {
+			result += current;
+		}
+	}
+	return result;
+}
+
+int main() {
+	HashTable<string, int> ht(10);
+
+	ht.insert("I", 1);
+	ht.insert("V", 5);
+	ht.insert("X", 10);
+	ht.insert("L", 50);
+	ht.insert("C", 100);
+	ht.insert("D", 500);
+	ht.insert("M", 1000);
+
+	bool flag = 1;
+	while (flag) {
+		string roman;
+		cout << "Enter a Roman numeral: ";
+		cin >> roman;
+
+		int result = roman_to_decimal(roman, ht);
+		cout << "Decimal value: " << result << endl;
+
+		cout << "do you want to continue?" << endl;;
+		cout << "1 - yes, 0 - no"<<endl;
+		cin >> flag;
+
+
+	}
+
+	return 0;
+}
